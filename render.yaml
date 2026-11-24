@@ -1,0 +1,39 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repo.
+# Frankfurt is the closest Render region to South Africa.
+
+databases:
+  - name: complyza-db
+    region: frankfurt
+    plan: basic-256mb          # "free" works for testing but expires after 30 days
+    postgresMajorVersion: "17"
+    databaseName: complyza
+    user: complyza
+services:
+  - type: web
+    name: complyza
+    runtime: docker
+    region: frankfurt
+    plan: starter              # free instances (0.1 CPU) are too slow to start Spring Boot reliably
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_HOST
+        fromDatabase: { name: complyza-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: complyza-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: complyza-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: complyza-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: complyza-db, property: password }
+      - key: OPENAI_API_KEY
+        sync: false            # entered in the dashboard, never committed
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ANALYST_PASSWORD
+        sync: false
+      - key: CHAT_MODEL
+        value: gpt-4.1-mini
