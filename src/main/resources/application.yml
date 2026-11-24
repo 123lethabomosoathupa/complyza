@@ -21,16 +21,27 @@ spring:
       max-file-size: 25MB
       max-request-size: 25MB
   ai:
-    # Both the Ollama and OpenAI-compatible starters are on the classpath, so say which ones are active.
-    # Everything we don't use is switched off, otherwise the OpenAI starter would demand an API key.
+    # Which provider runs chat and embeddings. Local default: Ollama.
+    # The "gemini" profile (below) switches both to Google Gemini.
     model:
       chat: ollama
       embedding: ollama
-      image: none
-      moderation: none
-      audio:
-        speech: none
-        transcription: none
+      embedding.text: none
+    google:
+      genai:
+        # The Gemini embedding connection needs a key at startup even when Gemini is not used,
+        # so a placeholder is set locally. The real key is only needed with the "gemini" profile.
+        api-key: ${GEMINI_API_KEY:not-set}
+        chat:
+          options:
+            model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash}
+            temperature: 0.0
+        embedding:
+          api-key: ${GEMINI_API_KEY:not-set}
+          text:
+            options:
+              model: gemini-embedding-001
+              dimensions: 768       # must match vector(768) in V1__init.sql
     ollama:
       base-url: ${OLLAMA_URL:http://localhost:11434}
       chat:
@@ -41,8 +52,6 @@ spring:
       embedding:
         options:
           model: ${EMBEDDING_MODEL:nomic-embed-text}
-    openai:
-      api-key: ${GEMINI_API_KEY:not-set}   # only used when the gemini profile is active
     vectorstore:
       pgvector:
         initialize-schema: false  # Flyway owns the schema (see db/migration)
@@ -57,6 +66,7 @@ spring:
         instructions: "Search South African regulations (POPIA, FIC Act) and get verbatim sections with section numbers."
 
 app:
+  chat-model-label: ollama/${CHAT_MODEL:llama3.2}   # recorded in the audit log
   security:
     admin-password: ${ADMIN_PASSWORD:admin-local}
     analyst-password: ${ANALYST_PASSWORD:analyst-local}
@@ -95,34 +105,21 @@ app:
     analyst-password: ${ANALYST_PASSWORD}
 
 ---
-# Gemini via Google's OpenAI-compatible endpoint. Activate with SPRING_PROFILES_ACTIVE=prod,gemini
-# Needs GEMINI_API_KEY. Model names can be changed with env vars if Google renames them.
+# Hosted AI: Google Gemini for chat and embeddings (used on Render, where Ollama is not available).
+# Needs GEMINI_API_KEY (free from https://aistudio.google.com/apikey).
 spring:
   config:
     activate:
       on-profile: gemini
   ai:
     model:
-      chat: openai
-      embedding: openai
-    openai:
-      api-key: ${GEMINI_API_KEY}
-      base-url: https://generativelanguage.googleapis.com
-      chat:
-        completions-path: /v1beta/openai/chat/completions
-        options:
-          model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash}
-          temperature: 0.0
-      embedding:
-        embeddings-path: /v1beta/openai/embeddings
-        options:
-          model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
-          dimensions: 768          # must stay 768 to match the pgvector column
-    retry:
-      max-attempts: 6              # the free tier rate-limits (HTTP 429); wait and try again
-      on-client-errors: true
-      exclude-on-http-codes: [400, 401, 403, 404]
-      backoff:
-        initial-interval: 2s
-        multiplier: 2
-        max-interval: 60s
+      chat: google-genai
+      embedding: none
+      embedding.text: google-genai
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        embedding:
+          api-key: ${GEMINI_API_KEY}
+app:
+  chat-model-label: gemini/${GEMINI_CHAT_MODEL:gemini-2.5-flash}

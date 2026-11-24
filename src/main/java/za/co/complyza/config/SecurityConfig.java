@@ -25,7 +25,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health/**", "/actuator/info", "/css/**", "/favicon.ico").permitAll()
+                .requestMatchers("/actuator/health/**", "/actuator/info", "/css/**", "/favicon.ico", "/error").permitAll()
                 .requestMatchers("/admin/**", "/actuator/**").hasRole("ADMIN")
                 .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
             // JSON/multipart APIs are called with HTTP Basic, not browser forms

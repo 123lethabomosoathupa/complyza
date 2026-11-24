@@ -26,7 +26,7 @@ public class AuditService {
     private final String model;
 
     public AuditService(JdbcTemplate jdbc, ObjectMapper objectMapper,
-                        @Value("${spring.ai.ollama.chat.options.model:unknown}") String model) {
+                        @Value("${app.chat-model-label:unknown}") String model) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.model = model;

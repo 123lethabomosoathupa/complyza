@@ -28,6 +28,15 @@ public class LegalSectionParser {
     private static final Pattern PAGE_NUMBER = Pattern.compile("^\\d{1,4}$");
     private static final Pattern GAZETTE_NOISE = Pattern.compile(
             "(?i)^(.*GOVERNMENT GAZETTE.*|.*STAATSKOERANT.*|No\\.\\s*\\d+\\s*$|Act No\\.\\s*\\d+ of \\d{4}\\s*$)");
+    /**
+     * Running page header and footer in Laws.Africa / LawLibrary PDFs, e.g.
+     * "Protection of Personal Information Act, 2013 (Act 4 of 2013) South Africa" and
+     * "By LawLibrary, AfricanLII, ... Share widely and freely. 58".
+     */
+    private static final Pattern PAGE_FURNITURE = Pattern.compile(
+            "(?i)^([A-Z][^.;:]*Act, \\d{4} \\(Act \\d+ of \\d{4}\\)( South Africa)?|South Africa|By LawLibrary\\b.*)$");
+    /** The Schedule after the last section (amendments to other laws) is not part of any section. */
+    private static final Pattern SCHEDULE = Pattern.compile("(?i)^Schedules?$");
     /** "(1)" at line start, or after end-of-sentence punctuation. */
     private static final Pattern SUBSECTION = Pattern.compile("(?:^|(?<=[.;:]\\s))\\((\\d{1,2}[A-Z]?)\\)\\s", Pattern.MULTILINE);
 
@@ -55,6 +64,10 @@ public class LegalSectionParser {
 
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
+
+            if (current != null && SCHEDULE.matcher(line).matches()) {
+                break;
+            }
 
             Matcher ch = CHAPTER.matcher(line);
             if (ch.matches()) {
@@ -84,7 +97,6 @@ public class LegalSectionParser {
                         // Everything so far was the table of contents.
                         sections.clear();
                     }
-
                     String heading = "";
                     String firstBody = rest;
 
@@ -210,6 +222,8 @@ public class LegalSectionParser {
         char last = line.charAt(line.length() - 1);
         return Character.isUpperCase(first)
                 && last != '.' && last != ';' && last != ':' && last != ','
+                && last != '-' && last != '–' && last != '—'
+                && last != '-' && last != '\u2013' && last != '\u2014'
                 && !line.startsWith("(");
     }
 
@@ -217,7 +231,8 @@ public class LegalSectionParser {
         List<String> out = new ArrayList<>();
         for (String line : raw.replace("\r", "").split("\n")) {
             String t = line.replace('\u00a0', ' ').replaceAll("\\s+", " ").trim();
-            if (t.isEmpty() || PAGE_NUMBER.matcher(t).matches() || GAZETTE_NOISE.matcher(t).matches()) {
+            if (t.isEmpty() || PAGE_NUMBER.matcher(t).matches() || GAZETTE_NOISE.matcher(t).matches()
+                    || PAGE_FURNITURE.matcher(t).matches()) {
                 continue;
             }
             out.add(t);

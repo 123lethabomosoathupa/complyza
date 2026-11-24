@@ -1,7 +1,18 @@
-# Render Blueprint for Comply ZA: free web service only.
-# The database lives in Neon, so there is no databases: block here.
+# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repo.
 # Frankfurt is the closest Render region to South Africa.
+#
+# Free setup: Render free web service + free Postgres, Google Gemini (free tier) for AI.
+# - The free web service sleeps after 15 minutes idle; the next visit takes about a minute to wake it.
+# - The free Postgres database expires 30 days after it is created. Upgrade the plan
+#   (or point DB_* at Neon) to keep it.
 
+databases:
+  - name: complyza-db
+    region: frankfurt
+    plan: free
+    postgresMajorVersion: "17"
+    databaseName: complyza
+    user: complyza
 services:
   - type: web
     name: complyza
@@ -13,22 +24,21 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod,gemini
-      - key: DB_NAME
-        value: neondb
-      - key: DB_USER
-        value: neondb_owner
-      - key: DB_PARAMS
-        value: "?sslmode=require"
-      - key: JAVA_OPTS
-        value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
-      # Secrets: Render asks for these in the dashboard, they are never committed.
       - key: DB_HOST
-        sync: false
+        fromDatabase: { name: complyza-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: complyza-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: complyza-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: complyza-db, property: user }
       - key: DB_PASSWORD
-        sync: false
+        fromDatabase: { name: complyza-db, property: password }
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false            # entered in the dashboard, never committed
       - key: ADMIN_PASSWORD
         sync: false
       - key: ANALYST_PASSWORD
         sync: false
+      - key: GEMINI_CHAT_MODEL
+        value: gemini-2.5-flash

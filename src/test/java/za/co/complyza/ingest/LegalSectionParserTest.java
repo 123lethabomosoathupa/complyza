@@ -73,6 +73,33 @@ class LegalSectionParserTest {
         assertThat(s3).allMatch(c -> c.text().startsWith("SAMPLE section 3"));
     }
 
+    // Laws.Africa / LawLibrary layout: "N. Heading" lines, a running page header and footer,
+    // and a Schedule of amended laws after the last section.
+    static final String LAWLIBRARY = """
+            Chapter 1 – Definitions
+            1. Definitions
+            (1) In this Act "record" means any recorded information regardless of form or medium.
+            By LawLibrary, AfricanLII, the Judicial Institute for Africa, and Laws.Africa. Share widely and freely. 2
+            Sample Act, 2013 (Act 4 of 2013)                                   South Africa
+            (2) A "responsible party" is a person who determines the purpose of processing.
+            2. Short title
+            This Act is called the Sample Act, 2013, and commences on a date set by the President.
+            Schedule
+            Laws amended by section 1
+            Act 2 of 2000 The amendment of section 72(1) by the substitution of paragraph (a).
+            """;
+
+    @Test
+    void dropsLawLibraryPageFurnitureAndSchedule() {
+        List<SectionChunk> chunks = new LegalSectionParser().parse(LAWLIBRARY, "SAMPLE");
+
+        assertThat(chunks).extracting(SectionChunk::section).containsExactly("1", "2");
+        assertThat(chunks).noneMatch(c -> c.text().contains("LawLibrary"));
+        assertThat(chunks).noneMatch(c -> c.text().contains("(Act 4 of 2013)"));
+        assertThat(chunks.get(1).heading()).isEqualTo("Short title");
+        assertThat(chunks.get(1).text()).doesNotContain("Laws amended");
+    }
+
     @Test
     void recognisesHeadingLikeLines() {
         assertThat(LegalSectionParser.looksLikeHeading("Security safeguards")).isTrue();
