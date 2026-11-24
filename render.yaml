@@ -1,39 +1,34 @@
-# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repo.
+# Render Blueprint for Comply ZA: free web service only.
+# The database lives in Neon, so there is no databases: block here.
 # Frankfurt is the closest Render region to South Africa.
 
-databases:
-  - name: complyza-db
-    region: frankfurt
-    plan: basic-256mb          # "free" works for testing but expires after 30 days
-    postgresMajorVersion: "17"
-    databaseName: complyza
-    user: complyza
 services:
   - type: web
     name: complyza
     runtime: docker
     region: frankfurt
-    plan: free              # free instances (0.1 CPU) are too slow to start Spring Boot reliably
+    plan: free
     healthCheckPath: /actuator/health
     autoDeploy: true
     envVars:
       - key: SPRING_PROFILES_ACTIVE
-        value: prod
-      - key: DB_HOST
-        fromDatabase: { name: complyza-db, property: host }
-      - key: DB_PORT
-        fromDatabase: { name: complyza-db, property: port }
+        value: prod,gemini
       - key: DB_NAME
-        fromDatabase: { name: complyza-db, property: database }
+        value: neondb
       - key: DB_USER
-        fromDatabase: { name: complyza-db, property: user }
+        value: neondb_owner
+      - key: DB_PARAMS
+        value: "?sslmode=require"
+      - key: JAVA_OPTS
+        value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
+      # Secrets: Render asks for these in the dashboard, they are never committed.
+      - key: DB_HOST
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase: { name: complyza-db, property: password }
-      - key: OPENAI_API_KEY
-        sync: false            # entered in the dashboard, never committed
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: ANALYST_PASSWORD
         sync: false
-      - key: CHAT_MODEL
-        value: gpt-4.1-mini
