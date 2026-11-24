@@ -80,10 +80,15 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- Spring AI -->
+        <!-- Spring AI: Ollama locally, OpenAI-compatible client pointed at Gemini in the cloud.
+             Which one is active is chosen in application.yml (spring.ai.model.*). -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>

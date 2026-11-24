@@ -13,7 +13,7 @@ services:
     name: complyza
     runtime: docker
     region: frankfurt
-    plan: starter              # free instances (0.1 CPU) are too slow to start Spring Boot reliably
+    plan: free              # free instances (0.1 CPU) are too slow to start Spring Boot reliably
     healthCheckPath: /actuator/health
     autoDeploy: true
     envVars:

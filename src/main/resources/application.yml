@@ -21,6 +21,16 @@ spring:
       max-file-size: 25MB
       max-request-size: 25MB
   ai:
+    # Both the Ollama and OpenAI-compatible starters are on the classpath, so say which ones are active.
+    # Everything we don't use is switched off, otherwise the OpenAI starter would demand an API key.
+    model:
+      chat: ollama
+      embedding: ollama
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
     ollama:
       base-url: ${OLLAMA_URL:http://localhost:11434}
       chat:
@@ -31,6 +41,8 @@ spring:
       embedding:
         options:
           model: ${EMBEDDING_MODEL:nomic-embed-text}
+    openai:
+      api-key: ${GEMINI_API_KEY:not-set}   # only used when the gemini profile is active
     vectorstore:
       pgvector:
         initialize-schema: false  # Flyway owns the schema (see db/migration)
@@ -81,3 +93,36 @@ app:
   security:
     admin-password: ${ADMIN_PASSWORD}
     analyst-password: ${ANALYST_PASSWORD}
+
+---
+# Gemini via Google's OpenAI-compatible endpoint. Activate with SPRING_PROFILES_ACTIVE=prod,gemini
+# Needs GEMINI_API_KEY. Model names can be changed with env vars if Google renames them.
+spring:
+  config:
+    activate:
+      on-profile: gemini
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+    openai:
+      api-key: ${GEMINI_API_KEY}
+      base-url: https://generativelanguage.googleapis.com
+      chat:
+        completions-path: /v1beta/openai/chat/completions
+        options:
+          model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash}
+          temperature: 0.0
+      embedding:
+        embeddings-path: /v1beta/openai/embeddings
+        options:
+          model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+          dimensions: 768          # must stay 768 to match the pgvector column
+    retry:
+      max-attempts: 6              # the free tier rate-limits (HTTP 429); wait and try again
+      on-client-errors: true
+      exclude-on-http-codes: [400, 401, 403, 404]
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 60s
