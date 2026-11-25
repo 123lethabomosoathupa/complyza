@@ -1,4 +1,4 @@
-﻿package za.co.complyza.ingest;
+package za.co.complyza.ingest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
