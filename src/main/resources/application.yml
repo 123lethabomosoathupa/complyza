@@ -1,6 +1,8 @@
 server:
   port: ${PORT:8080}            # Render injects PORT
   shutdown: graceful
+  error:
+    include-message: always      # TEMPORARY: shows why a request failed. Remove after debugging.
 
 spring:
   application:
