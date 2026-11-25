@@ -6,3 +6,5 @@ target/
 .env
 *.log
 q.json
+
+*.bak
