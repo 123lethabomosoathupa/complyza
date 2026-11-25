@@ -1,4 +1,4 @@
-package za.co.complyza.ingest;
+﻿package za.co.complyza.ingest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,12 +23,18 @@ import java.util.stream.Collectors;
 
 /**
  * Loads an Act (PDF or plain text) into the vector store:
- * hash -> skip if already loaded -> extract text -> split by section -> embed -> replace older version.
+ * hash -> skip if already loaded -> extract text -> split by section -> embed in
+ * rate-limited batches -> replace older version.
  */
 @Service
 public class IngestionService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
+
+    // Gemini free tier allows 100 embed requests per minute.
+    private static final int BATCH_SIZE = 60;
+    private static final long PAUSE_MS = 62_000;
+    private static final int MAX_RETRIES = 4;
 
     private final VectorStore vectorStore;
     private final JdbcTemplate jdbc;
@@ -68,9 +74,9 @@ public class IngestionService {
                 .map(c -> new Document(c.text(), metadata(c, versionLabel, sourceUrl, ingestionId)))
                 .toList();
 
-        // Embed and store the new version first; only then remove the old one,
-        // so a failed embedding call never leaves the Act missing.
-        vectorStore.add(docs);
+        // Embed and store the new version first, in batches under the rate limit;
+        // only then remove the old one, so a failed embedding call never leaves the Act missing.
+        addInBatches(docs);
         int removed = jdbc.update("""
                 DELETE FROM vector_store
                 WHERE metadata ->> 'act' = ? AND metadata ->> 'ingestionId' <> ?
@@ -86,6 +92,44 @@ public class IngestionService {
                 actKey, versionLabel, sections, docs.size(), removed);
         return new IngestResult("INGESTED", actKey, versionLabel, docs.size(), sections, ingestionId,
                 removed > 0 ? "Replaced " + removed + " chunks from a previous version." : "New Act loaded.");
+    }
+
+    private void addInBatches(List<Document> docs) {
+        int total = docs.size();
+        for (int i = 0; i < total; i += BATCH_SIZE) {
+            List<Document> batch = docs.subList(i, Math.min(i + BATCH_SIZE, total));
+            addWithRetry(batch);
+            log.info("Embedded {}/{} chunks", Math.min(i + BATCH_SIZE, total), total);
+            if (i + BATCH_SIZE < total) {
+                sleep(PAUSE_MS);
+            }
+        }
+    }
+
+    private void addWithRetry(List<Document> batch) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                vectorStore.add(batch);
+                return;
+            } catch (RuntimeException e) {
+                String msg = String.valueOf(e.getMessage());
+                boolean quota = msg.contains("429") || msg.toLowerCase().contains("quota");
+                if (!quota || attempt >= MAX_RETRIES) {
+                    throw e;
+                }
+                log.warn("Rate limited (attempt {}/{}), waiting {}s", attempt, MAX_RETRIES, PAUSE_MS / 1000);
+                sleep(PAUSE_MS);
+            }
+        }
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Ingest interrupted", e);
+        }
     }
 
     public List<Map<String, Object>> documents() {
