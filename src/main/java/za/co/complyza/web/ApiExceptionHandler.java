@@ -29,15 +29,10 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
     }
 
-    /** TEMPORARY for debugging: exposes the root cause of upstream (model/embedding) failures. */
     @ExceptionHandler(RuntimeException.class)
     ProblemDetail upstream(RuntimeException e) {
-        Throwable root = e;
-        while (root.getCause() != null && root.getCause() != root) {
-            root = root.getCause();
-        }
         log.error("Request failed", e);
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY,
-                root.getClass().getSimpleName() + ": " + root.getMessage());
+                "The AI service is temporarily unavailable. Please try again.");
     }
 }
